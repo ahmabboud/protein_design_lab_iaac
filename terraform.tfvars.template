@@ -1,0 +1,48 @@
+# Terraform variables configuration
+# Rename this file to terraform.tfvars and update values as needed
+
+# AWS configuration
+aws_region = "us-east-1"
+aws_profile = "default"
+account_id = "123456789012"  # Replace with your AWS account ID
+
+# Project settings
+project_name = "protein-discovery"
+environment = "dev"
+
+# Network settings
+vpc_cidr = "10.0.0.0/16"
+subnet_cidrs = ["10.0.1.0/24", "10.0.2.0/24"]
+
+# SageMaker settings
+sagemaker_user_name = "protein-researcher"
+
+# Ray cluster settings
+cpu_worker_count = 2
+gpu_worker_count = 1
+ray_head_instance_type = "ml.m5.2xlarge"      # Head node type
+ray_cpu_instance_type = "ml.m5.4xlarge"       # CPU worker node type
+ray_gpu_instance_type = "ml.g4dn.xlarge"      # GPU worker node type
+ray_version = "2.6.1"                         # Ray version
+
+# Pipeline parameters
+min_capacity_param = 1
+max_capacity_param = 5
+
+# Instance type settings
+sagemaker_instance_type = "ml.t3.medium"  # Instance type for SageMaker notebook
+
+# FSx Lustre settings
+fsx_storage_capacity = 1200
+fsx_deployment_type = "SCRATCH_2"
+fsx_storage_type = "SSD"
+
+# Custom tag values (optional - defaults are set in provider)
+caylent_owner = "ahmad.abboud@caylent.com"
+caylent_workload = "protein_lab_1" 
+caylent_project = "protein_experiment"
+
+# Terraform backend settings (optional - for reference only)
+# These values should match backend.tf but are not used as variables
+# tf_state_bucket = "protein-discovery-terraform-state"
+# tf_state_dynamodb = "protein-discovery-terraform-lock"
