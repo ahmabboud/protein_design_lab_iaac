@@ -45,16 +45,75 @@ This infrastructure includes:
   - Resource Groups Tagging API access
 - S3 bucket and DynamoDB table for Terraform state (already configured in `backend.tf`)
 
+## Backend Setup
+
+Before initializing Terraform, ensure that the S3 bucket specified in `backend.tf` exists. Terraform does not create backend resources automatically.
+
+### Create the S3 Bucket
+
+If the S3 bucket does not exist, create it using the AWS CLI:
+
+```bash
+aws s3api create-bucket --bucket <bucket-name> --region <region>
+```
+
+Replace `<bucket-name>` and `<region>` with the values specified in `backend.tf`. For example:
+
+```bash
+aws s3api create-bucket --bucket protein-discovery-terraform-state --region us-east-1
+```
+
+After creating the bucket, re-run:
+
+```bash
+terraform init
+```
+
+This will initialize the backend and download the required modules.
+
+### Automate Backend Setup
+
+To simplify the setup of the S3 bucket required for the Terraform backend, a script is provided. Run the following command to create the bucket and enable versioning:
+
+```bash
+./scripts/create_initial_bucket.sh
+```
+
+Ensure the AWS CLI is installed and configured before running the script. Once the bucket is created, you can proceed with:
+
+```bash
+terraform init
+```
+
 ## Getting Started
 
-1. Clone this repository
-2. Create a `terraform.tfvars` file with your specific values:
-   ```
-   # Example terraform.tfvars file - create this in the project root
-   aws_region = "us-east-1"
-   project_name = "protein-discovery"
-   environment = "dev"
-   account_id = "123456789012"  # Replace with your AWS account ID
+Follow these steps to set up and deploy the infrastructure:
+
+### Step 1: Clone the Repository
+
+Clone this repository to your local machine:
+
+```bash
+git clone https://github.com/ahmabboud/protein_design_lab_iaac.git
+cd protein_design_lab_iaac
+```
+
+### Step 2: Configure Variables
+
+Create a `terraform.tfvars` file in the project root and update it with your specific values. Use the provided `terraform.tfvars.template` as a reference:
+
+```bash
+cp terraform.tfvars.template terraform.tfvars
+```
+
+Edit the `terraform.tfvars` file to include your AWS account details and other configurations:
+
+```hcl
+aws_region = "us-east-1"
+account_id = "123456789012"  # Replace with your AWS account ID
+project_name = "protein-discovery"
+environment = "dev"
+account_id = "123456789012"  # Replace with your AWS account ID
    aws_profile = "default"
    cpu_worker_count = 2
    gpu_worker_count = 1
@@ -63,14 +122,58 @@ This infrastructure includes:
 ```
 terraform init
 ```
-4. Plan the deployment:
+
+This will download the required modules and configure the backend.
+
+### Step 5: Validate the Configuration
+
+Validate the Terraform configuration to ensure it is correct:
+
+```bash
+terraform validate
 ```
+
+### Step 6: Plan the Deployment
+
+Generate an execution plan to preview the changes Terraform will make:
+
+```bash
 terraform plan
 ```
-5. Deploy the infrastructure:
-```
+
+### Step 7: Deploy the Infrastructure
+
+Apply the Terraform configuration to deploy the infrastructure:
+
+```bash
 terraform apply
 ```
+
+### Step 8: Verify the Deployment
+
+After the deployment is complete, verify the outputs:
+
+```bash
+terraform output
+```
+
+### Step 9: Environment-Specific Deployments (Optional)
+
+To deploy to different environments, create environment-specific variable files (e.g., `dev.tfvars`, `prod.tfvars`) and use them during deployment:
+
+```bash
+terraform apply -var-file=dev.tfvars
+```
+
+### Step 10: Cleanup (Optional)
+
+To clean up resources, use the following command:
+
+```bash
+terraform destroy
+```
+
+For advanced cleanup options, refer to the "Resource Cleanup" section below.
 
 ## Environments
 
@@ -290,3 +393,13 @@ If you encounter persistent resources after cleanup attempts:
 6. **Run Script in AWS CLI Mode**: If Terraform-based cleanup fails, try the AWS CLI-based option
 
 **Note:** All cleanup methods will permanently delete resources and data. Always ensure you have backups of important data before proceeding.
+
+### Make Scripts Executable
+
+Before running any shell scripts, ensure they are executable. You can make all scripts in the `scripts` directory executable by running the following command:
+
+```bash
+chmod +x scripts/*.sh
+```
+
+This step is required to run scripts like `create_initial_bucket.sh` and `force_cleanup.sh`.

@@ -128,3 +128,9 @@ variable "caylent_project" {
   type        = string
   default     = "protein_experiment"
 }
+
+variable "cleanup_dry_run" {
+  description = "Flag to enable or disable dry run mode for cleanup operations"
+  type        = bool
+  default     = true
+}

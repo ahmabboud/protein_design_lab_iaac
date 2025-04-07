@@ -1,9 +1,9 @@
 terraform {
   backend "s3" {
-    bucket         = "protein-discovery-terraform-state"  # Hardcoded bucket name
+    bucket         = "${var.project_name}-terraform-state-${var.account_id}"  # Dynamic bucket name
     key            = "terraform.tfstate"
-    region         = "us-east-1"  # Hardcoded region
-    dynamodb_table = "protein-discovery-terraform-lock"  # Hardcoded table name
+    region         = "${var.aws_region}"  # Use variable for region
+    dynamodb_table = "protein-discovery-terraform-lock"  # Hardcoded table name remains
     encrypt        = true
   }
 }
