@@ -28,12 +28,6 @@ resource "aws_sagemaker_notebook_instance_lifecycle_configuration" "setup" {
     EOF2
   EOF
   )
-  
-  tags = {
-    "caylent:workload" = var.caylent_workload
-    "caylent:project" = var.caylent_project
-    "caylent:owner" = var.caylent_owner
-  }
 }
 
 resource "aws_iam_role" "sagemaker_execution_role" {

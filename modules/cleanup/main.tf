@@ -75,6 +75,7 @@ module "cleanup_sagemaker" {
   
   domain_ids     = local.sagemaker_domain_ids
   notebook_names = local.sagemaker_notebook_names
+  aws_region     = var.aws_region
 }
 
 # Root module can call terraform destroy on this cleanup module once resources are identified

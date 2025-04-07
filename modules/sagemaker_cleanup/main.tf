@@ -1,10 +1,21 @@
 # SageMaker Cleanup Module
 # This module handles SageMaker resource cleanup using AWS CLI commands via null_resources
 
-# Get user profiles for each domain
-data "aws_sagemaker_user_profiles" "profiles" {
-  for_each  = toset(var.domain_ids)
-  domain_id = each.key
+# Get user profiles through local-exec instead of invalid data source
+resource "null_resource" "list_user_profiles" {
+  for_each = toset(var.domain_ids)
+  
+  provisioner "local-exec" {
+    command = <<-EOF
+      echo "Listing user profiles for domain: ${each.key}"
+      aws sagemaker list-user-profiles \
+        --domain-id ${each.key} \
+        --region ${var.aws_region} \
+        --output json > ${path.module}/user_profiles_${each.key}.json
+    EOF
+    interpreter = ["/bin/bash", "-c"]
+    on_failure = continue
+  }
 }
 
 # Stop notebook instances before deletion
@@ -48,35 +59,38 @@ resource "null_resource" "stop_notebooks" {
   }
 }
 
-# Clean up user profiles
+# Clean up user profiles - using a simplified approach
 resource "null_resource" "cleanup_user_profiles" {
-  for_each = {
-    for profile in flatten([
-      for domain_id, profiles in data.aws_sagemaker_user_profiles.profiles : [
-        for profile_name in profiles.user_profile_names : {
-          domain_id = domain_id
-          name      = profile_name
-        }
-      ]
-    ]) : "${profile.domain_id}:${profile.name}" => profile
-  }
+  for_each = toset(var.domain_ids)
   
   provisioner "local-exec" {
     command = <<-EOF
-      echo "Deleting SageMaker User Profile: ${each.value.name} in domain ${each.value.domain_id}"
-      for i in $(seq 1 ${var.max_retries}); do
-        aws sagemaker delete-user-profile \
-          --domain-id ${each.value.domain_id} \
-          --user-profile-name ${each.value.name} \
-          --region ${var.aws_region} && break
+      echo "Finding and deleting user profiles for domain: ${each.key}"
+      # If the profiles JSON file exists, use it
+      if [ -f "${path.module}/user_profiles_${each.key}.json" ]; then
+        profiles=$(cat "${path.module}/user_profiles_${each.key}.json" | jq -r '.UserProfiles[].UserProfileName')
         
-        echo "Retry $i: Failed to delete user profile, retrying in 10 seconds..."
-        sleep 10
-      done
+        for profile in $profiles; do
+          echo "Deleting SageMaker User Profile: $profile in domain ${each.key}"
+          for i in $(seq 1 ${var.max_retries}); do
+            aws sagemaker delete-user-profile \
+              --domain-id ${each.key} \
+              --user-profile-name "$profile" \
+              --region ${var.aws_region} && break
+            
+            echo "Retry $i: Failed to delete user profile, retrying in 10 seconds..."
+            sleep 10
+          done
+        done
+      else
+        echo "No user profile list found for domain ${each.key}. Skipping user profile cleanup."
+      fi
     EOF
     interpreter = ["/bin/bash", "-c"]
     on_failure = continue
   }
+  
+  depends_on = [null_resource.list_user_profiles]
 }
 
 # Clean up domains after user profiles

@@ -49,24 +49,43 @@ This infrastructure includes:
 
 Before initializing Terraform, ensure that the S3 bucket specified in `backend.tf` exists. Terraform does not create backend resources automatically.
 
+### Important Note About Backend Configuration
+
+The backend configuration in this project uses partial configuration to allow for flexibility. When initializing Terraform, you need to provide the bucket name and region as command-line parameters:
+
+```bash
+terraform init -backend-config="bucket=<PROJECT_NAME>-terraform-state-<YOUR_ACCOUNT_ID>" -backend-config="region=<AWS_REGION>"
+```
+
+For example, if your AWS account ID is 123456789012 and you're using us-east-1 region:
+```bash
+terraform init -backend-config="bucket=protein-discovery-terraform-state-123456789012" -backend-config="region=us-east-1"
+```
+
+**Important**: Replace `123456789012` with your actual AWS account ID. Do not use the example account ID 495304082646 as this belongs to the project creator.
+
+This approach allows you to maintain the same backend.tf file across different environments.
+
 ### Create the S3 Bucket
 
 If the S3 bucket does not exist, create it using the AWS CLI:
 
 ```bash
-aws s3api create-bucket --bucket <bucket-name> --region <region>
+aws s3api create-bucket --bucket <PROJECT_NAME>-terraform-state-<YOUR_ACCOUNT_ID> --region <AWS_REGION>
 ```
 
-Replace `<bucket-name>` and `<region>` with the values specified in `backend.tf`. For example:
+For example, if your AWS account ID is 123456789012:
 
 ```bash
-aws s3api create-bucket --bucket protein-discovery-terraform-state --region us-east-1
+aws s3api create-bucket --bucket protein-discovery-terraform-state-123456789012 --region us-east-1
 ```
+
+**Important**: Always use your own AWS account ID in the bucket name, not the example account ID.
 
 After creating the bucket, re-run:
 
 ```bash
-terraform init
+terraform init -backend-config="bucket=protein-discovery-terraform-state-<YOUR_ACCOUNT_ID>" -backend-config="region=<AWS_REGION>"
 ```
 
 This will initialize the backend and download the required modules.
@@ -113,10 +132,9 @@ aws_region = "us-east-1"
 account_id = "123456789012"  # Replace with your AWS account ID
 project_name = "protein-discovery"
 environment = "dev"
-account_id = "123456789012"  # Replace with your AWS account ID
-   aws_profile = "default"
-   cpu_worker_count = 2
-   gpu_worker_count = 1
+aws_profile = "default"
+cpu_worker_count = 2
+gpu_worker_count = 1
    ```
 3. Initialize Terraform:
 ```
@@ -403,3 +421,111 @@ chmod +x scripts/*.sh
 ```
 
 This step is required to run scripts like `create_initial_bucket.sh` and `force_cleanup.sh`.
+
+## Troubleshooting
+
+### Common Issues and Solutions
+
+#### Backend Initialization Errors
+
+If you encounter errors during `terraform init` related to the S3 backend:
+
+1. Verify the S3 bucket exists:
+   ```bash
+   aws s3 ls | grep <your-bucket-name>
+   ```
+
+2. Check your AWS credentials and permissions:
+   ```bash
+   aws sts get-caller-identity
+   ```
+
+3. Ensure the DynamoDB table for state locking exists:
+   ```bash
+   aws dynamodb describe-table --table-name protein-discovery-terraform-lock
+   ```
+
+4. If you're using variables in backend.tf, remember they're not supported. Use partial configuration instead:
+   ```bash
+   terraform init -backend-config="bucket=protein-discovery-terraform-state-<your account id>" -backend-config="region=us-east-1"
+   ```
+
+#### Ray Cluster Issues
+
+If the Ray cluster is not initializing properly:
+
+1. Check the SageMaker domain status:
+   ```bash
+   aws sagemaker describe-domain --domain-id <domain-id>
+   ```
+
+2. Verify the template configurations in `modules/ray/templates/`
+
+3. Look at CloudWatch Logs for the Ray cluster initialization
+
+#### FSx Lustre Problems
+
+1. Check that the VPC has DNS resolution enabled
+2. Verify security groups allow necessary traffic
+3. Ensure subnet has enough available IP addresses
+
+### AWS Quota Limits
+
+This infrastructure may require certain quota increases depending on your AWS account:
+
+1. SageMaker resources (domains, user profiles)
+2. EC2 instance limits (especially for GPU instances)
+3. FSx storage capacity
+
+Request quota increases through the AWS Service Quotas console if needed.
+
+## Maintenance and Updates
+
+### Terraform Version Updates
+
+This project is tested with Terraform ~> 1.0. When upgrading Terraform:
+
+1. Update the version constraint in `versions.tf`
+2. Run `terraform init -upgrade` to update providers
+3. Use `terraform validate` and `terraform plan` to verify compatibility
+
+### AWS Provider Updates
+
+The AWS provider is pinned to ~> 4.0 for stability. To update:
+
+1. Modify the version constraint in `versions.tf`
+2. Run `terraform init -upgrade`
+3. Test thoroughly before applying to production environments
+
+### Security Best Practices
+
+1. Rotate AWS access keys regularly
+2. Review and update IAM permissions in the `iam` module
+3. Enable bucket encryption and versioning for sensitive data
+4. Consider implementing AWS CloudTrail for auditing
+5. Regularly update dependencies to patch security vulnerabilities
+
+## Cost Management
+
+The `docs/cost_optimization.md` file contains details about cost management strategies, but here are key points:
+
+1. Use the Ray head node with a small instance type when not actively computing
+2. Set worker nodes to scale to zero when not needed
+3. Schedule FSx Lustre backups and consider destroying when not in use
+4. Use lifecycle rules for S3 objects to transition to cheaper storage classes
+5. Monitor costs with AWS Cost Explorer and set up budget alerts
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Submit a pull request with a detailed description of changes
+4. Ensure all tests pass and the documentation is updated
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Contact
+
+For questions or support, please contact ahmad.abboud@caylent.com
