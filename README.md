@@ -319,6 +319,102 @@ terraform output
 
 This incremental approach will implement the complete solution, creating all resources defined in the Terraform configuration in a logical order that respects dependencies.
 
+## Incremental Deployment Guide
+
+For safer deployment, you can deploy resources incrementally using Terraform's targeting functionality. This approach helps isolate issues and provides better control over the deployment process.
+
+### Step-by-Step Incremental Deployment
+
+1. **Initialize Terraform** (if not already done):
+   ```bash
+   terraform init
+   ```
+
+2. **Deploy networking components first**:
+   ```bash
+   terraform plan -target=module.vpc -target=module.security_groups
+   terraform apply -target=module.vpc -target=module.security_groups
+   ```
+
+3. **Deploy storage components**:
+   ```bash
+   terraform plan -target=module.s3_buckets
+   terraform apply -target=module.s3_buckets
+   ```
+
+4. **Deploy database components**:
+   ```bash
+   terraform plan -target=module.dynamodb
+   terraform apply -target=module.dynamodb
+   ```
+
+5. **Deploy compute components**:
+   ```bash
+   terraform plan -target=module.ec2_instances -target=module.lambda_functions
+   terraform apply -target=module.ec2_instances -target=module.lambda_functions
+   ```
+
+6. **Deploy remaining components**:
+   ```bash
+   terraform plan
+   terraform apply
+   ```
+
+### Error Recovery and Cleanup
+
+If any deployment step fails, you can use the following approaches to clean up and retry:
+
+#### Destroying Failed Resources
+
+1. **Destroy specific failed resources** by targeting them:
+   ```bash
+   terraform destroy -target=RESOURCE_TYPE.RESOURCE_NAME
+   ```
+   Example: `terraform destroy -target=module.ec2_instances`
+
+2. **Clean up specific states** if resources are in a bad state:
+   ```bash
+   terraform state rm MODULE_PATH.RESOURCE_PATH
+   ```
+   Example: `terraform state rm module.ec2_instances.aws_instance.main`
+
+3. **Destroy all resources** in reverse dependency order (use with caution):
+   ```bash
+   terraform destroy
+   ```
+
+#### Common Recovery Scenarios
+
+1. **Failed EC2 instance deployment**:
+   ```bash
+   terraform destroy -target=module.ec2_instances
+   terraform apply -target=module.ec2_instances
+   ```
+
+2. **Failed security group update**:
+   ```bash
+   # Remove the security group from state if it's in a bad state
+   terraform state rm module.security_groups.aws_security_group.main
+   # Re-import if needed
+   terraform import module.security_groups.aws_security_group.main sg-12345
+   # Re-apply the security group configuration
+   terraform apply -target=module.security_groups
+   ```
+
+3. **Database deployment issues**:
+   ```bash
+   terraform destroy -target=module.dynamodb
+   terraform apply -target=module.dynamodb
+   ```
+
+#### Tips for Safer Deployments
+
+- Always run `terraform plan` before applying changes to preview the modifications
+- Use `-auto-approve=false` to review changes before they're applied
+- Create backups of your state file before significant changes
+- Consider using remote state with locking for team environments
+- Set appropriate timeouts in your resource configurations to avoid premature failures
+
 ## Resource Cleanup
 
 This project provides multiple approaches to clean up resources, each suited for different scenarios.
